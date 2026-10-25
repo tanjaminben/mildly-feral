@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "scope": "Runtime artwork omitted from this source-only snapshot. Supply appropriately licensed exact files before serving the app; no asset license is granted here.",
+  "files": [
+    {
+      "path": "public/favicon.svg",
+      "bytes": 2007,
+      "sha256": "1cc3fb906493e987ecc769161826bfd6becb624603617651bfb7dfeab49d4fd4"
+    },
+    {
+      "path": "public/file.svg",
+      "bytes": 393,
+      "sha256": "81a9ce5ca9bc60870c1d72c0fd5b98b2bc5c8c02b0e04fefeab9efcc11277228"
+    },
+    {
+      "path": "public/globe.svg",
+      "bytes": 1037,
+      "sha256": "13187c071b4d369df3a7a179f69a927165bf624e1a524ee6c93b7d3be75d6fc8"
+    },
+    {
+      "path": "public/identity/mildly-feral-logo.png",
+      "bytes": 1306045,
+      "sha256": "6f9bd12bf2dc45cab25acf1433bd95f9ca7a14c367e27dca554e98c47950a29e"
+    },
+    {
+      "path": "public/images/brewing/brew-bench.png",
+      "bytes": 3170435,
+      "sha256": "01ee9db7b7632d340a27303b1b243c1c5d3c8035bb5681fbf3c392ca3e0229c2"
+    },
+    {
+      "path": "public/images/brewing/recipe-hazy-session.png",
+      "bytes": 3400249,
+      "sha256": "0177ea75a82af6200df665975d9ced3b93b1ce1c762ccce7c153cc939f9af707"
+    },
+    {
+      "path": "public/images/brewing/recipe-kama-citra.png",
+      "bytes": 3520566,
+      "sha256": "ec2be776bcda15651373c22f209e33ec3290795366b1917d3aff858c53f106e0"
+    },
+    {
+      "path": "public/images/brewing/recipe-tropical-hazy.png",
+      "bytes": 3600651,
+      "sha256": "3db5e06b91715c692e3ba398408ea7144de09f484bec8bde3bb9e15f3384e662"
+    },
+    {
+      "path": "public/images/brewing/recipe-wheat-ipa.png",
+      "bytes": 3226179,
+      "sha256": "72a4bbbb366d96b96161a6b18287d3894f9bd445fc59191759f16d1fb6300ea9"
+    },
+    {
+      "path": "public/window.svg",
+      "bytes": 387,
+      "sha256": "d3cd4bf0c1123258fcc266409856e28c93d4fc1cf8476702225e17842900ca63"
+    }
+  ]
+}

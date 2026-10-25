@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { notebookSchema, batchSchema, entrySchema, emptyRecipe, cToF, fToC } from '../lib/notebook.ts';
+import { completedObservations, fermentationReading, bottlingEvidence } from '../lib/brew-state.ts';
+
+let count=0;
+const check=(name,run)=>{run();count++;console.log('PASS '+name);};
+const now=Date.now(),hour=3600000,id=()=>crypto.randomUUID();
+const batchId=id();
+const rawBatch={id:batchId,name:'Synthetic regression batch',recipeId:'kit',startedOn:'2026-10-01',stage:'ferment',checks:{},packetNotes:'Preserve these original notes',yeastConfirmed:true,createdAt:new Date(now-200*hour).toISOString()};
+const entry=(overrides={})=>entrySchema.parse({id:id(),batchId,type:'reading',at:new Date(now-hour).toISOString(),timezone:'America/Los_Angeles',title:'Synthetic reading',note:'Original note',tempC:20,tempKind:'beer',gravity:1.012,volumeL:null,photos:[],bottling:null,...overrides});
+const book=(entries,batches=[rawBatch])=>({schemaVersion:1,batches,entries});
+
+check('legacy notebook retains contents and requires explicit confirmation',()=>{const e=entry();const legacy={...e};delete legacy.status;delete legacy.phase;const result=notebookSchema.parse(book([legacy]));assert.equal(result.entries[0].status,'unconfirmed');assert.equal(result.entries[0].note,'Original note');assert.equal(result.batches[0].packetNotes,rawBatch.packetNotes);assert.equal(result.batches[0].recipe.steps.length,7);assert.equal(completedObservations(result.entries,now).length,0);});
+check('plans never become observations when their date passes',()=>{const e=entry({status:'planned',at:new Date(now+hour).toISOString()});assert.equal(completedObservations([e],now).length,0);assert.equal(completedObservations([e],now+2*hour).length,0);assert.equal(e.status,'planned');});
+check('past plans and unconfirmed entries are excluded',()=>assert.equal(completedObservations([entry({status:'planned'}),entry({status:'unconfirmed'})],now).length,0));
+check('completed past observations contribute and retain ordering',()=>{const a=entry({status:'completed',at:new Date(now-3*hour).toISOString()}),b=entry({status:'completed'});assert.deepEqual(completedObservations([a,b],now).map(e=>e.id),[b.id,a.id]);});
+check('future completion is rejected by the notebook validation used on saves',()=>assert.equal(notebookSchema.safeParse(book([entry({status:'completed',at:new Date(now+hour).toISOString()})])).success,false));
+check('deleted completed records never contribute',()=>assert.equal(completedObservations([entry({status:'completed',deletedAt:new Date(now).toISOString()})],now).length,0));
+check('recipe step needs an instruction before confirmation',()=>{const recipe=emptyRecipe();recipe.steps[2].confirmed=true;assert.equal(batchSchema.safeParse({...rawBatch,recipe}).success,false);});
+check('confirmed recipe values round trip without becoming guesses',()=>{const recipe=emptyRecipe();recipe.steps[2]={stage:'boil',instruction:'Synthetic test instruction',quantity:'Synthetic amount',minutes:12,tempC:70,confirmed:true};assert.deepEqual(batchSchema.parse({...rawBatch,recipe}).recipe.steps[2],recipe.steps[2]);});
+check('reversed yeast ranges are rejected',()=>assert.equal(batchSchema.safeParse({...rawBatch,recipe:{...emptyRecipe(),minC:25,maxC:18}}).success,false));
+const fermentationBatch=batchSchema.parse({...rawBatch,recipe:{...emptyRecipe(),yeastName:'Lallemand Verdant IPA',minC:18,maxC:25}});
+check('completed out-of-range fermentation measurement is detected',()=>assert.equal(fermentationReading(fermentationBatch,[entry({status:'completed',phase:'ferment',tempC:29})]).outside,true));
+check('hot wort does not trigger fermentation warnings',()=>assert.equal(fermentationReading(fermentationBatch,[entry({status:'completed',phase:'steep',tempC:68})]),null));
+check('cold tasting temperature does not trigger fermentation warnings',()=>assert.equal(fermentationReading(fermentationBatch,[entry({status:'completed',phase:'taste',tempC:4})]),null));
+check('room air is not treated as beer temperature',()=>assert.equal(fermentationReading(fermentationBatch,[entry({status:'completed',phase:'ferment',tempKind:'room',tempC:35})]),null));
+check('unconfirmed yeast and inactive fermentation suppress range warning',()=>{const e=entry({status:'completed',phase:'ferment',tempC:29});assert.equal(fermentationReading({...fermentationBatch,yeastConfirmed:false},[e]),null);assert.equal(fermentationReading({...fermentationBatch,stage:'taste'},[e]),null);assert.equal(fermentationReading(batchSchema.parse(rawBatch),[e]),null);});
+check('planned readings do not cause temperature warnings',()=>assert.equal(fermentationReading(fermentationBatch,[entry({status:'planned',phase:'ferment',tempC:29})]),null));
+check('bottling evidence starts after the latest completed hop, excluding planned hops',()=>{const entries=[entry({type:'dry-hop',status:'completed',at:new Date(now-80*hour).toISOString(),gravity:null}),entry({type:'dry-hop',status:'planned',at:new Date(now-2*hour).toISOString(),gravity:null}),entry({status:'completed',phase:'ferment',at:new Date(now-90*hour).toISOString(),gravity:1.030}),entry({status:'completed',phase:'ferment',at:new Date(now-70*hour).toISOString()}),entry({status:'completed',phase:'ferment',at:new Date(now-hour).toISOString()}),entry({status:'planned',phase:'ferment',gravity:1.000})];const evidence=bottlingEvidence(entries,now);assert.equal(evidence.readings.length,2);assert.equal(evidence.spanHours,69);assert.equal(evidence.spread,0);assert.equal(evidence.excluded,2);assert.equal(evidence.lastHop.id,entries[0].id);});
+check('unclassified legacy gravity cannot look like fermentation evidence',()=>assert.equal(bottlingEvidence([entry({status:'completed',phase:null})],now).readings.length,0));
+check('unit conversion preserves canonical readings',()=>{assert.equal(fToC(68),20);assert.equal(cToF(20),68);});
+console.log(`${count} brewing state regressions passed.`);
