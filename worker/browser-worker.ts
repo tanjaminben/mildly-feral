@@ -11,7 +11,8 @@ export default {
     result.headers.set('X-Content-Type-Options', 'nosniff');
     result.headers.set('X-Frame-Options', 'DENY');
     result.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    if ((response.headers.get('Content-Type') || '').includes('text/html')) result.headers.set('Cache-Control', 'no-cache');
+    // Keep Cloudflare's automatic analytics injection out of this browser notebook.
+    if ((response.headers.get('Content-Type') || '').includes('text/html')) result.headers.set('Cache-Control', 'public, no-cache, no-transform');
     return result;
   },
 } satisfies ExportedHandler<BrowserWorkerEnv>;
