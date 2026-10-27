@@ -72,19 +72,66 @@ export const entrySchema = z.object({
   status: z.enum(["planned","completed","unconfirmed"]).default("unconfirmed"),
   phase: z.enum(stages).nullable().default(null),
 });
-export const notebookSchema = z.object({schemaVersion:z.literal(1), batches:z.array(batchSchema).max(40), entries:z.array(entrySchema).max(500)}).superRefine((v,ctx) => {
+export const kombuchaStages = ["tea", "culture", "first-ferment", "flavor", "second-ferment", "chill-taste"] as const;
+export const kombuchaRecipeSchema = z.object({
+  tea: text(300), hotWater: text(100), coldWater: text(100), sugar: text(200), starter: text(300),
+  steepMin: z.number().min(.1).max(180), steepMax: z.number().min(.1).max(180),
+  minC: z.number().min(0).max(50), maxC: z.number().min(0).max(50), idealC: z.number().min(0).max(50),
+  startPhMax: z.number().min(0).max(14), finishPhMin: z.number().min(0).max(14), finishPhMax: z.number().min(0).max(14),
+  referenceDaysMin: z.number().int().min(1).max(365), referenceDaysMax: z.number().int().min(1).max(365),
+  houseMethod: text(1200), source: text(500),
+}).refine(v=>v.steepMin<=v.steepMax&&v.minC<=v.idealC&&v.idealC<=v.maxC&&v.finishPhMin<=v.finishPhMax&&v.referenceDaysMin<=v.referenceDaysMax,"Check the recipe's lower and upper limits.");
+export const houseKombuchaRecipe = () => ({
+  tea:"3 tbsp tea blend", hotWater:"4 cups filtered water", coldWater:"8 cups cold filtered water", sugar:"1 cup organic cane sugar",
+  starter:"SCOBY culture + 2 cups mature, unflavored starter kombucha", steepMin:5, steepMax:7,
+  minC:20, maxC:30, idealC:24.4444444444, startPhMax:4.5, finishPhMin:2.5, finishPhMax:3.5,
+  referenceDaysMin:8, referenceDaysMax:10,
+  houseMethod:"Ferment for a few weeks for a stronger, more tart brew. Check pH and taste as it develops.",
+  source:"Tea recipe and targets: The Kombucha Shop recipe supplied by Ben. Starter quantity: Cornell Cooperative Extension. Longer first fermentation: house method.",
+});
+export const flavorGroupSchema = z.object({
+  id, name:z.string().trim().min(1).max(100), ingredients:text(1200), bottles:z.number().int().min(0).max(10000).nullable(),
+  volumeL:z.number().min(.001).max(1000).nullable(), bottledOn:day.nullable(), chilledOn:day.nullable(), notes:text(3000),
+}).refine(v=>!v.chilledOn||(!!v.bottledOn&&v.chilledOn>=v.bottledOn),"Record a bottling date before the chill date.");
+export const kombuchaBatchSchema = z.object({
+  id, name:z.string().trim().min(1).max(100), startedOn:day, stage:z.enum(kombuchaStages), createdAt:instant, deletedAt:erased,
+  checks:z.record(z.string().max(80),z.boolean()).refine(v=>Object.keys(v).length<=100), notes:text(6000), starterNotes:text(3000),
+  recipe:kombuchaRecipeSchema, flavors:z.array(flavorGroupSchema).max(32),
+});
+export const kombuchaEntrySchema = z.object({
+  id, batchId:id, type:z.enum(["note","reading","tasting","bottling"]), at:instant, timezone:text(100),
+  title:text(150), note:text(12000), tempC:z.number().min(-10).max(110).nullable(), tempKind:z.enum(["tea","room"]),
+  ph:z.number().min(0).max(14).nullable(), volumeL:z.number().min(.001).max(1000).nullable(), tartness:text(300),
+  photos:z.array(z.object({id,caption:text(300)})).max(4), status:z.enum(["planned","completed","unconfirmed"]),
+  phase:z.enum(kombuchaStages), flavorId:id.nullable(), deletedAt:erased,
+});
+export type KombuchaBatch=z.infer<typeof kombuchaBatchSchema>;
+export type KombuchaEntry=z.infer<typeof kombuchaEntrySchema>;
+export type FlavorGroup=z.infer<typeof flavorGroupSchema>;
+export type KombuchaRecipe=z.infer<typeof kombuchaRecipeSchema>;
+// v1 notebooks are read additively. No IPA IDs, measurements, dates or photo references change.
+export const notebookSchema = z.object({schemaVersion:z.union([z.literal(1),z.literal(2)]).transform(()=>2 as const), batches:z.array(batchSchema).max(40), entries:z.array(entrySchema).max(500), kombuchaBatches:z.array(kombuchaBatchSchema).max(40).default([]), kombuchaEntries:z.array(kombuchaEntrySchema).max(500).default([])}).superRefine((v,ctx) => {
+  const allBatches=[...v.batches,...v.kombuchaBatches], allEntries=[...v.entries,...v.kombuchaEntries];
   const batches = new Set(v.batches.map(b=>b.id));
-  if(batches.size !== v.batches.length || new Set(v.entries.map(e=>e.id)).size !== v.entries.length) ctx.addIssue({code:"custom",message:"Duplicate record IDs."});
+  if(new Set(allBatches.map(b=>b.id)).size !== allBatches.length || new Set(allEntries.map(e=>e.id)).size !== allEntries.length) ctx.addIssue({code:"custom",message:"Duplicate record IDs."});
+  if(allBatches.length>40||allEntries.length>500)ctx.addIssue({code:"custom",message:"The shared notebook limit is 40 batches and 500 entries across IPA and Kombucha, including Trash."});
   if(v.entries.some(e=>!batches.has(e.batchId))) ctx.addIssue({code:"custom",message:"An entry refers to a missing batch."});
-  if(v.entries.some(e=>e.status==="completed" && +new Date(e.at)>Date.now())) ctx.addIssue({code:"custom",message:"A future entry must stay planned. Set its actual date before marking it completed."});
+  if(allEntries.some(e=>e.status==="completed" && +new Date(e.at)>Date.now())) ctx.addIssue({code:"custom",message:"A future entry must stay planned. Set its actual date before marking it completed."});
+  const kombucha=new Map(v.kombuchaBatches.map(b=>[b.id,b]));
+  if(v.kombuchaEntries.some(e=>!kombucha.has(e.batchId)||e.flavorId&&!kombucha.get(e.batchId)!.flavors.some(f=>f.id===e.flavorId)))ctx.addIssue({code:"custom",message:"A Kombucha entry refers to a missing batch or flavor group."});
+  const flavors=v.kombuchaBatches.flatMap(b=>b.flavors);
+  if(new Set(flavors.map(f=>f.id)).size!==flavors.length)ctx.addIssue({code:"custom",message:"Duplicate flavor group IDs."});
+  // Dates are brewer-local: allow any current calendar day, but never a future actual event.
+  const latestToday=new Date(Date.now()+14*3600000).toISOString().slice(0,10);
+  if(flavors.some(f=>f.bottledOn&&f.bottledOn>latestToday||f.chilledOn&&f.chilledOn>latestToday))ctx.addIssue({code:"custom",message:"Bottling and chilling dates record actual events. Keep future plans in the journal."});
 });
 export type Batch = z.infer<typeof batchSchema>;
 export type Entry = z.infer<typeof entrySchema>;
 export type Notebook = z.infer<typeof notebookSchema>;
 export type Recipe = z.infer<typeof recipeSchema>;
 export type RecipeStep = z.infer<typeof recipeStepSchema>;
-export const emptyNotebook = ():Notebook => ({schemaVersion:1,batches:[],entries:[]});
-export const referencedPhotoIds = (book:Notebook) => [...new Set(book.entries.flatMap(e=>e.photos.map(p=>p.id)))];
+export const emptyNotebook = ():Notebook => ({schemaVersion:2,batches:[],entries:[],kombuchaBatches:[],kombuchaEntries:[]});
+export const referencedPhotoIds = (book:Pick<Notebook,"entries"> & Partial<Pick<Notebook,"kombuchaEntries">>) => [...new Set([...book.entries,...(book.kombuchaEntries||[])].flatMap(e=>e.photos.map(p=>p.id)))];
 export const cToF = (v:number) => v*9/5+32;
 export const fToC = (v:number) => (v-32)*5/9;
 export const galToL = (v:number) => v*3.785411784;

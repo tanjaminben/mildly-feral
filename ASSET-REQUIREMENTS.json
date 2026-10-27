@@ -51,6 +51,11 @@
       "path": "public/window.svg",
       "bytes": 387,
       "sha256": "d3cd4bf0c1123258fcc266409856e28c93d4fc1cf8476702225e17842900ca63"
+    },
+    {
+      "path": "public/images/brewing/kombucha-bench.png",
+      "bytes": 3305468,
+      "sha256": "32d9c9e0c726959d379c6f7dc9e5a066fb7a4b5170315c306c2abcb954a83eee"
     }
   ]
 }

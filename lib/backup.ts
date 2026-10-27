@@ -1,4 +1,5 @@
 import type { Notebook } from "./notebook.ts";
+import { remapHydrometerSources } from "./gravity.ts";
 
 export const importLimits = { batches: 40, entries: 500, photos: 60 } as const;
 export type BackupCounts = Record<keyof typeof importLimits, number>;
@@ -15,9 +16,9 @@ export type ImportCount = {
 // Trash is part of the saved notebook and its backup, so it counts here too.
 export function backupCounts(book: Notebook): BackupCounts {
   return {
-    batches: book.batches.length,
-    entries: book.entries.length,
-    photos: new Set(book.entries.flatMap(entry => entry.photos.map(photo => photo.id))).size,
+    batches: book.batches.length + (book.kombuchaBatches?.length || 0),
+    entries: book.entries.length + (book.kombuchaEntries?.length || 0),
+    photos: new Set([...book.entries,...(book.kombuchaEntries||[])].flatMap(entry => entry.photos.map(photo => photo.id))).size,
   };
 }
 
@@ -65,4 +66,18 @@ export function backupSnapshot(book: Notebook, revision: number, generatedAt: st
 
 export function isBackupCurrent(snapshot: Pick<BackupSnapshot, "identity"> | null, book: Notebook, revision: number): boolean {
   return snapshot !== null && snapshot.identity === backupIdentity(book, revision);
+}
+
+/** Add a backup as independent copies, including flavor-group and gravity provenance. */
+export function mergeNotebook(existing:Notebook,incoming:Notebook,photoIds:Map<string,string>,makeId:()=>string=()=>crypto.randomUUID()):Notebook {
+  const batchIds=new Map([...incoming.batches,...incoming.kombuchaBatches].map(b=>[b.id,makeId()]));
+  const entryIds=new Map([...incoming.entries,...incoming.kombuchaEntries].map(e=>[e.id,makeId()]));
+  const flavorIds=new Map(incoming.kombuchaBatches.flatMap(b=>b.flavors).map(f=>[f.id,makeId()]));
+  const photos=(list:{id:string,caption:string}[])=>list.map(p=>{const id=photoIds.get(p.id);if(!id)throw new Error("An imported photo is missing.");return {...p,id};});
+  return {schemaVersion:2,
+    batches:[...existing.batches,...incoming.batches.map(b=>({...b,id:batchIds.get(b.id)!,hydrometer:remapHydrometerSources(b.hydrometer,entryIds)}))],
+    entries:[...existing.entries,...incoming.entries.map(e=>({...e,id:entryIds.get(e.id)!,batchId:batchIds.get(e.batchId)!,photos:photos(e.photos)}))],
+    kombuchaBatches:[...existing.kombuchaBatches,...incoming.kombuchaBatches.map(b=>({...b,id:batchIds.get(b.id)!,flavors:b.flavors.map(f=>({...f,id:flavorIds.get(f.id)!}))}))],
+    kombuchaEntries:[...existing.kombuchaEntries,...incoming.kombuchaEntries.map(e=>({...e,id:entryIds.get(e.id)!,batchId:batchIds.get(e.batchId)!,flavorId:e.flavorId?flavorIds.get(e.flavorId)!:null,photos:photos(e.photos)}))],
+  };
 }

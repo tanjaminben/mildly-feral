@@ -5,3 +5,5 @@ This is the full Mildly Feral application, notebook/backup/ABV logic, Worker/dat
 Supply the runtime artwork before starting the interface. Use a new local D1/R2 state for development. No hosted credentials or binding IDs are provided, and no deployment is part of these instructions. Existing copyright and dependency-license boundaries remain.
 
 The included `.openai/hosting.json` provides only generic local binding names, `DB` and `BUCKET`. It contains no hosted project ID or account identity.
+
+The two-edition layout includes redistributable Barlow fonts with their OFL notices. Runtime illustration exclusions also cover the Kombucha edition scene; it remains listed by path, size and hash in ASSET-REQUIREMENTS.json. The repository banner and button are carried forward from the maintained repository without further edits.
