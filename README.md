@@ -1,18 +1,19 @@
-# Mildly Feral — IPA Fieldbook
+# Mildly Feral — IPA & kombucha
 
-A brewing notebook for batch records, measured readings, photos, timers, and backups.
+A personal brewing fieldbook for IPA and kombucha: recipes, batch notes, readings, photos, and tasting notes.
 
 <p>
 <a href="#run-locally"><img src="docs/images/buttons/ipa-fieldbook.svg" height="50" alt="Run locally"></a>&nbsp; 
 </p>
 
-[![ipa-fieldbook illustrated repository banner.](docs/images/banner.png)](docs/images/banner.png)
+[![Mildly Feral banner showing IPA and kombucha.](docs/images/banner.png)](docs/images/banner.png)
 
 ## What it does
 
-- Follow seven brewing stages with checklists and explicitly confirmed recipe instructions.
-- Save batch notes, dates, hydrometer readings, tasting entries, and photographs.
-- Estimate alcohol content from measured original and final gravity, and use a recoverable brew timer.
+- **IPA:** work through preparation, steeping, boiling, chilling, fermentation, bottling, and tasting, with checklists and confirmed recipe instructions.
+- **Kombucha:** tea preparation, starter culture, fermentation, flavoring, and tasting support is in development alongside the IPA workflow.
+- Save batch notes, dates, readings, tasting entries, and photographs.
+- Estimate IPA alcohol content from measured original and final gravity, and use a recoverable brew timer.
 - Export saved records and photos, recover deleted items, and import backups without silently replacing existing records.
 
 This is a personal notebook application. No public hosted demo is offered here.
@@ -47,7 +48,7 @@ The built Worker can be previewed locally with `npm start`. Hosting requires con
 
 Saved notebooks use D1 and photos use R2 under the signed-in user's identity. Drafts and timers remain in browser storage and do not synchronize across devices. A connection is needed to save. Backups contain private notebook data, including saved photos and Trash; store them accordingly. Limits are 40 batches, 500 entries, and 60 photos per owner.
 
-The alcohol calculator estimates ABV from temperature-corrected gravity readings. It does not determine fermentation completion or a safe priming-sugar dose. Recipe targets never substitute for measured readings. The timer does not promise notifications after the page is closed.
+The IPA alcohol calculator estimates ABV from temperature-corrected gravity readings. These calculations do not apply to kombucha. It does not determine fermentation completion or a safe priming-sugar dose. Recipe targets never substitute for measured readings. The timer does not promise notifications after the page is closed.
 
 ## License and credits
 
