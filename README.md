@@ -17,22 +17,20 @@ A personal brewing fieldbook for IPA and kombucha: recipes, batch notes, reading
 - Estimate IPA alcohol content from measured original and final gravity, and use a recoverable brew timer.
 - Export saved records and photos, recover deleted items, and import backups without silently replacing existing records.
 
-[Open Mildly Feral](https://mildly-feral.tanjamin-ben.chatgpt.site). Sign in to keep your own brewing notebook. You can also launch it from Play on [ben-tan.com](https://ben-tan.com).
+[Open Mildly Feral](https://mildly-feral.ben-tan.com). No account is needed. Notebooks and photos stay in your browser profile; export a file for backup or transfer. You can also launch it from Play on [ben-tan.com](https://ben-tan.com).
 
 ## Run locally
 
 This source snapshot omits runtime artwork and hosted project identity. Supply the appropriately licensed files listed in [ASSET-REQUIREMENTS.json](ASSET-REQUIREMENTS.json) before running the interface. [Source snapshot scope](SOURCE-SNAPSHOT.md).
 
-Use Node.js 22.13 or newer. Install the locked dependencies and build the local Worker configuration:
+Use Node.js 22.13 or newer. Install the locked dependencies and start the browser app:
 
 ```sh
 npm run install:ci
-npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_purple_speed_demon.sql
-npm run dev -- --hostname 127.0.0.1
+npm run dev
 ```
 
-The database command initializes a fresh **local** notebook; do not replay it against an existing database. Open the URL printed by the server, then visit `/signin-with-chatgpt?return_to=/` for the loopback development identity. Hosted sign-in is a separate service and is not simulated in production builds.
+Open the URL printed by the server. The browser creates its own IndexedDB notebook. No database initialization, sign-in, or server storage is required.
 
 ## Build and check
 
@@ -43,18 +41,25 @@ node scripts/check-abv.mjs
 node scripts/check-backup.mjs
 node scripts/check-review-brewing.mjs
 node scripts/check-kombucha.mjs
+npm run check:browser
 npm run build
 ```
 
-The built Worker can be previewed locally with `npm start`. Hosting requires configured authentication, D1, and R2 bindings. A Git push or local build does not deploy the app.
+The built Worker can be previewed locally with `npm start`. `wrangler.jsonc` serves the built assets with no notebook API, identity service, D1 database, or R2 bucket. A Git push or local build does not deploy the app. Deployment requires the domain owner's Cloudflare account; use a different Worker name and domain for your own deployment.
 
 ## Limitations
 
-Saved notebooks use D1 and photos use R2 under the signed-in user's identity. Drafts and timers remain in browser storage and do not synchronize across devices. A connection is needed to save. Backups contain private notebook data, including saved photos and Trash; store them accordingly. Limits are 40 batches, 500 entries, and 60 photos per owner.
+Notebooks and compressed photos are saved in IndexedDB for this browser profile and site address. People who share that profile can access the same notebook. Other browsers and devices have separate notebooks. Clearing site data, removing the profile, or closing a private browsing session can remove saved records. Export regularly. Limits are 40 batches, 500 entries, and 60 photos per browser notebook.
+
+One JSON export contains both brewing editions, saved photo bytes, and Trash. It contains compressed JPEG copies, not original camera files. Import adds separate copies and preserves existing records; repeated imports create duplicates. Backup files are not encrypted. Keep them private. Drafts and timers stay in the browser and are not part of a notebook export.
 
 The IPA alcohol calculator estimates ABV from temperature-corrected gravity readings. These calculations do not apply to kombucha. Kombucha has its own pH, temperature, and taste records; the notebook does not infer bottle pressure or readiness. It does not determine fermentation completion or a safe priming-sugar dose. Recipe targets never substitute for measured readings. The timer does not promise notifications after the page is closed.
 
 Notebook schema 2 retains existing IPA records and imports schema-1 backups additively. New backups include both kinds of brewing, including flavor groups, photos, and Trash. Storage limits are shared across both editions. See [Kombucha workflow and compatibility](docs/KOMBUCHA.md).
+
+## Earlier Sites version
+
+The original Sites release remains a separate private application with ChatGPT sign-in, D1 notebooks, and R2 photos. Its saved data does not automatically move to this browser app. Export from that release and import the file here. Legacy server source and migrations remain in this repository for reference; they are outside the default browser build. The previously deployed Sites source is preserved separately for recovery.
 
 ## License and credits
 

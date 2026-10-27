@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {IDBFactory} from 'fake-indexeddb';
+import {emptyNotebook,notebookSchema,batchSchema,entrySchema,kombuchaBatchSchema,kombuchaEntrySchema,houseKombuchaRecipe,referencedPhotoIds} from '../lib/notebook.ts';
+import {mergeNotebook} from '../lib/backup.ts';
+import {blobData,decodePhoto} from '../lib/photos.ts';
+import {readNotebook,writeNotebook,listPhotos,addPhoto,readPhoto,removePhoto} from '../lib/browser-storage.ts';
+
+let passed=0;
+async function check(name,run){await run();passed++;console.log('PASS '+name);}
+const browserA=new IDBFactory(),browserB=new IDBFactory();
+globalThis.indexedDB=browserA;
+const at=new Date().toISOString(),id=()=>crypto.randomUUID();
+const jpeg=new Blob([new Uint8Array([255,216,255,224,0,2,255,217])],{type:'image/jpeg'});
+const ipa=batchSchema.parse({id:id(),name:'Synthetic IPA',recipeId:'kit',startedOn:'2026-10-01',stage:'ferment',checks:{},packetNotes:'',yeastConfirmed:false,createdAt:at});
+const kombucha=kombuchaBatchSchema.parse({id:id(),name:'Synthetic culture',startedOn:'2026-10-01',stage:'first-ferment',createdAt:at,checks:{},notes:'',starterNotes:'Keep starter notes',recipe:houseKombuchaRecipe(),flavors:[]});
+const beer=entrySchema.parse({id:id(),batchId:ipa.id,type:'note',at,timezone:'America/Los_Angeles',title:'Synthetic beer note',note:'Keep this note',tempC:null,tempKind:'beer',gravity:null,volumeL:null,photos:[],bottling:null,status:'completed',phase:'ferment'});
+const culture=kombuchaEntrySchema.parse({id:id(),batchId:kombucha.id,type:'reading',at,timezone:'America/Los_Angeles',title:'Synthetic pH',note:'Keep this reading',tempC:24,tempKind:'tea',ph:3.1,volumeL:null,tartness:'tart',photos:[],status:'completed',phase:'first-ferment',flavorId:null});
+let book=notebookSchema.parse({...emptyNotebook(),batches:[ipa],entries:[beer],kombuchaBatches:[kombucha],kombuchaEntries:[culture]}),photoId;
+
+await check('fresh browser has an empty notebook without an account',async()=>{const r=await readNotebook();assert.equal(r.owner,'browser');assert.equal(r.revision,0);assert.deepEqual(r.book,emptyNotebook());});
+await check('browser saves both brewing editions and restores exact records',async()=>{const r=await writeNotebook(book,0);assert.equal(r.revision,1);assert.deepEqual((await readNotebook()).book,book);});
+await check('reopening the store retains saved notes',async()=>assert.equal((await readNotebook()).book.entries[0].note,'Keep this note'));
+await check('stale tab cannot overwrite newer saved records',async()=>{await assert.rejects(writeNotebook(emptyNotebook(),0),/another tab/);assert.deepEqual((await readNotebook()).book,book);});
+await check('failed missing-photo save leaves revision and records intact',async()=>{const next=structuredClone(book);next.entries[0].photos=[{id:id(),caption:'Missing'}];await assert.rejects(writeNotebook(next,1),/photo is missing/);assert.equal((await readNotebook()).revision,1);});
+await check('invalid notebook fails before any write',async()=>{await assert.rejects(writeNotebook({...book,batches:[{...ipa,startedOn:'2026-02-30'}]},1));assert.equal((await readNotebook()).revision,1);});
+await check('invalid photo type is rejected',async()=>assert.rejects(addPhoto(new Blob(['text'],{type:'image/png'})),/JPEG/));
+await check('forged JPEG header is rejected',async()=>assert.rejects(addPhoto(new Blob(['text'],{type:'image/jpeg'})),/readable JPEG/));
+await check('oversized photo is rejected',async()=>assert.rejects(addPhoto(new Blob([new Uint8Array(1048577)],{type:'image/jpeg'})),/1 MB/));
+await check('compressed photo persists as exact image bytes',async()=>{photoId=(await addPhoto(jpeg)).id;assert.deepEqual(new Uint8Array(await (await readPhoto(photoId)).arrayBuffer()),new Uint8Array(await jpeg.arrayBuffer()));});
+await check('unused photos are counted for cleanup',async()=>{const p=await listPhotos();assert.equal(p.count,1);assert.deepEqual(p.unused,[photoId]);});
+await check('saved Kombucha photo is protected from cleanup',async()=>{book.kombuchaEntries[0].photos=[{id:photoId,caption:'Synthetic culture photo'}];await writeNotebook(book,1);await assert.rejects(removePhoto(photoId),/still used/);assert.equal((await listPhotos()).unused.length,0);});
+await check('photos in Trash remain protected',async()=>{book.kombuchaEntries[0].deletedAt=at;await writeNotebook(book,2);await assert.rejects(removePhoto(photoId),/Trash/);});
+await check('concurrent tab writes have exactly one winner',async()=>{const outcomes=await Promise.allSettled([writeNotebook(book,3),writeNotebook(book,3)]);assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);assert.equal(outcomes.filter(x=>x.status==='rejected').length,1);});
+book=(await readNotebook()).book;
+await check('export embeds photo bytes rather than URLs',async()=>{const photos={};for(const id of referencedPhotoIds(book)){const b=await readPhoto(id);photos[id]='data:image/jpeg;base64,'+Buffer.from(await b.arrayBuffer()).toString('base64');}const exported=JSON.parse(JSON.stringify({format:'small-batch-fieldbook',version:2,book,photos}));assert.deepEqual(exported.book,book);assert.match(exported.photos[photoId],/^data:image\/jpeg;base64,/);globalThis.__exportFixture=exported;});
+globalThis.indexedDB=browserB;
+await check('another browser starts with separate records and no photos',async()=>{assert.deepEqual((await readNotebook()).book,emptyNotebook());assert.equal((await listPhotos()).count,0);await assert.rejects(readPhoto(photoId),/not available/);});
+await check('import restores both editions, Trash and exact photos in another browser',async()=>{const raw=globalThis.__exportFixture,photos=new Map();for(const id of referencedPhotoIds(raw.book))photos.set(id,(await addPhoto(decodePhoto(raw.photos[id]))).id);const imported=mergeNotebook(emptyNotebook(),notebookSchema.parse(raw.book),photos);await writeNotebook(imported,0);const r=await readNotebook();assert.equal(r.book.batches.length,1);assert.equal(r.book.kombuchaBatches.length,1);assert.ok(r.book.kombuchaEntries[0].deletedAt);assert.notEqual(r.book.entries[0].id,beer.id);const id=r.book.kombuchaEntries[0].photos[0].id;assert.deepEqual(new Uint8Array(await (await readPhoto(id)).arrayBuffer()),new Uint8Array(await jpeg.arrayBuffer()));});
+await check('imported changes do not alter the source browser',async()=>{const b=(await readNotebook()).book;b.batches[0].name='Browser B only';await writeNotebook(b,1);globalThis.indexedDB=browserA;assert.equal((await readNotebook()).book.batches[0].name,'Synthetic IPA');});
+await check('concurrent additions cannot exceed 60 photos',async()=>{const r=await Promise.allSettled(Array.from({length:61},()=>addPhoto(jpeg)));assert.equal((await listPhotos()).count,60);assert.ok(r.some(x=>x.status==='rejected'));});
+await check('only unreferenced photos can be removed',async()=>{const unused=(await listPhotos()).unused;await removePhoto(unused[0]);assert.equal((await listPhotos()).count,59);await assert.rejects(removePhoto(photoId),/still used/);});
+const original=indexedDB;
+await check('unavailable browser storage fails visibly without an in-memory fallback',async()=>{globalThis.indexedDB=undefined;await assert.rejects(readNotebook(),/cannot save notebooks/);});
+globalThis.indexedDB=original;
+console.log(`${passed} browser-storage checks passed.`);
