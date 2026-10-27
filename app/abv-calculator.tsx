@@ -33,7 +33,7 @@ export default function AbvCalculator({value,batchName,batchId,entries=[],now,on
   const sourceNote=(field:GravityField)=>{
     const source=value[`${field}Source`];
     if(!value[field])return null;
-    if(!source)return <p className="small muted" key={field}><strong>{field.toUpperCase()}:</strong> Entered independently; no journal date linked.</p>;
+    if(!source)return <p className="small muted" key={field}><strong>{field.toUpperCase()}:</strong> Entered here; not copied from a journal entry.</p>;
     const status=batchId?gravitySourceStatus(source,numeric(value[field]),entries,batchId,field,now):"unavailable";
     const entry=entries.find(item=>item.id===source.entryId&&item.batchId===batchId&&!item.deletedAt);
     return <div key={field} className={status==="current"?"small muted":"inline-warning small"}>
@@ -58,7 +58,7 @@ export default function AbvCalculator({value,batchName,batchId,entries=[],now,on
       {batchId&&<details className="abv-details"><summary>Use a saved journal reading</summary><p className="small muted">Choose a completed sample from this batch. Values are copied with their date; later journal edits require you to choose the sample again. Only use temperature-corrected hydrometer SG, with OG taken before fermentation and FG before priming.</p><fieldset className="form-fields" disabled={busy||!ready}><div className="form-grid">{(["og","fg"] as const).map(field=>{
         const readings=journalGravityOptions(entries,batchId,field,now);
         return <label key={field}>Use journal reading as {field.toUpperCase()}<select value="" disabled={!readings.length} onChange={e=>{const entry=readings.find(item=>item.id===e.target.value);if(entry)onChange(selectJournalGravity(value,field,entry,batchId,now));}}><option value="">{readings.length?"Choose a measured sample":"No eligible saved readings"}</option>{readings.map(entry=><option key={entry.id} value={entry.id}>{entry.gravity?.toFixed(3)} SG · {formatDate(entry.at)}{entry.title?` · ${entry.title}`:""}</option>)}</select></label>;
-      })}</div></fieldset><p className="small muted">Planned, deleted, future, and out-of-range readings are not offered. Recipe targets are never used.</p></details>}
+      })}</div></fieldset><p className="small muted">Choose a completed, past reading in the accepted SG range. Recipe targets cannot be used as measurements.</p></details>}
       <p className="small muted" id="abv-method">Use the SG scale (1.xxx). Take samples at your hydrometer’s calibration temperature, or <a href="https://www.brewersfriend.com/hydrometer-temp/" target="_blank" rel="noreferrer">temperature-correct each reading <ArrowUpRight size={12}/></a> first.</p>
       <div className="abv-save"><div className="button-row"><button type="submit" className="button compact" disabled={!batchName||!dirty||!parsed.success||busy||!ready}>{busy?"Saving…":"Save readings"}</button>{dirty&&<button type="button" className="text-button" disabled={busy} onClick={onReset}>{batchName?"Reset to saved":"Clear values"}</button>}</div><p className="small muted">{!batchName?"Start a batch to save these readings. You can calculate without one.":dirty?`Unsaved readings for ${batchName}.` :hasValues?`Saved with ${batchName}.`:"You can save OG now and add FG after fermentation."}</p></div>
     </form>

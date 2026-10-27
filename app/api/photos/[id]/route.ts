@@ -12,6 +12,6 @@ export async function DELETE(request:Request,{params}:Params){try{
   const {owner,db,bucket}=await context(request,true);const {id}=await params;
   const doc=await db.prepare("SELECT document FROM notebooks WHERE owner = ?").bind(owner).first<{document:string}>();
   if(doc && referencedPhotoIds(JSON.parse(doc.document) as Notebook).includes(id))return json({error:"This photo is still attached to a saved entry, including Trash."},409);
-  const row=await db.prepare("DELETE FROM photos WHERE id = ? AND owner = ? AND NOT EXISTS (SELECT 1 FROM notebooks n, json_each(n.document, '$.entries') e, json_each(e.value, '$.photos') p WHERE n.owner = ? AND json_extract(p.value, '$.id') = ?) RETURNING object_key").bind(id,owner,owner,id).first<{object_key:string}>();
+  const row=await db.prepare("DELETE FROM photos WHERE id = ? AND owner = ? AND NOT EXISTS (SELECT 1 FROM notebooks n, json_each(n.document) collection, json_each(collection.value) e, json_each(e.value, '$.photos') p WHERE n.owner = ? AND collection.key IN ('entries', 'kombuchaEntries') AND json_extract(p.value, '$.id') = ?) RETURNING object_key").bind(id,owner,owner,id).first<{object_key:string}>();
   if(row)await bucket.delete(row.object_key);return json({ok:true});
 }catch(e){return failed(e);}}

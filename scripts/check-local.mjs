@@ -10,7 +10,7 @@ const req=(path,options={})=>fetch(origin+path,{...options,headers:{Cookie:cooki
 check('anonymous notebook access is rejected',(await fetch(origin+'/api/notebook')).status===401);
 check('untrusted identity headers are stripped by local auth',(await fetch(origin+'/api/notebook',{headers:{'oai-authenticated-user-id':'another-user','oai-authenticated-user-email':'other@example.test'}})).status===401);
 const initial=await (await req('/api/notebook')).json();
-check('notebook loads with authenticated owner',initial.owner==='local_seedy'&&initial.book.schemaVersion===1);
+check('notebook loads with authenticated owner',initial.owner==='local_seedy'&&[1,2].includes(initial.book.schemaVersion));
 check('photo journal survived server round trip',initial.book.entries.some(e=>e.title==='QA — first reading'&&e.photos.length===1&&e.at==='2026-10-05T17:15:00.000Z'));
 const entry=initial.book.entries.find(e=>e.title==='QA — first reading');
 check('68°F and 0.8 US gal stored as canonical Celsius/liters',entry.tempC===20&&Math.abs(entry.volumeL-3.0283294272)<1e-9);
