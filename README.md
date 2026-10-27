@@ -17,7 +17,7 @@ A personal brewing fieldbook for IPA and kombucha: recipes, batch notes, reading
 - Estimate IPA alcohol content from measured original and final gravity, and use a recoverable brew timer.
 - Export saved records and photos, recover deleted items, and import backups without silently replacing existing records.
 
-[Open Mildly Feral](https://ipa-fieldbook.tanjamin-ben.chatgpt.site). Sign in to keep your own brewing notebook. You can also launch it from Play on [ben-tan.com](https://ben-tan.com).
+[Open Mildly Feral](https://mildly-feral.tanjamin-ben.chatgpt.site). Sign in to keep your own brewing notebook. You can also launch it from Play on [ben-tan.com](https://ben-tan.com).
 
 ## Run locally
 
