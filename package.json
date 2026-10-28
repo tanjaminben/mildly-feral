@@ -9,6 +9,7 @@
     "install:ci": "node scripts/install-ci.mjs",
     "dev": "vite --config vite.browser.config.ts",
     "build": "vite build --config vite.browser.config.ts",
+    "build:portfolio": "vite build --config vite.portfolio.config.ts",
     "start": "wrangler dev --config wrangler.jsonc --ip 127.0.0.1 --port 8878",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",

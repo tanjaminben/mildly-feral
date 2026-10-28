@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- These local raster illustrations render their full canvases. */
 import type { recipeShelf } from "@/lib/content";
+import { appAsset } from "@/lib/app-location";
 
 type RecipeId = (typeof recipeShelf)[number]["id"];
 
@@ -26,7 +27,7 @@ export function BrewArt() {
   return (
     <img
       className="brew-art"
-      src="/images/brewing/brew-bench.png"
+      src={appAsset("images/brewing/brew-bench.png")}
       alt="The Mildly Feral fox with a notebook beside a glass fermentation jug and hops on a brewing bench."
       width={1536}
       height={1024}
@@ -40,7 +41,7 @@ export function RecipeArt({ recipeId }: { recipeId: RecipeId }) {
   return (
     <img
       className="recipe-art"
-      src={`/images/brewing/${image.file}`}
+      src={appAsset(`images/brewing/${image.file}`)}
       alt={image.alt}
       width={1536}
       height={1024}

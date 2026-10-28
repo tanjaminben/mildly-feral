@@ -57,3 +57,5 @@ label{font-size:16px!important;font-weight:600}input,select,textarea{font-size:1
 .stage-content .brew-note{font-size:16px;line-height:1.6;margin:24px 0;padding-top:16px;border-top:1px solid var(--line)}
 
 .browser-storage-note{font-size:14px;color:var(--muted);margin:0 0 22px;max-width:75ch}.local-photo-placeholder{display:grid;place-items:center;min-height:100px;padding:16px;border:1px dashed var(--line);font-size:14px;color:var(--muted)}
+
+.feral-portfolio-bar{width:var(--page-width);margin:0 auto;padding-top:6px}.portfolio-return{display:inline-flex;align-items:center;gap:9px;min-height:44px;font-size:16px;font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}.portfolio-return:hover{color:var(--rust)}.portfolio-return svg{flex:none}
