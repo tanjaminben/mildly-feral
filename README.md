@@ -10,7 +10,7 @@ A personal brewing fieldbook for IPA and kombucha: recipes, batch notes, reading
 
 ## What it does
 
-- **IPA:** work through preparation, steeping, boiling, chilling, fermentation, bottling, and tasting, with checklists and confirmed recipe instructions.
+- **IPA:** start with your own recipe or choose an optional preset. Use extract, extract-with-grains or all-grain instructions, batch volume, ingredients, yeast guidance and a method-specific checklist. Reuse a saved recipe for the next batch.
 - **Kombucha:** brew separate batches through tea preparation, starter culture, fermentation, flavoring, bottling, and tasting, with starter notes, measured pH and temperature, and bottle flavor groups.
 - Keep the Kombucha Shop recipe reference separate from the longer house fermentation method.
 - Save batch notes, dates, readings, tasting entries, and photographs.
@@ -41,6 +41,7 @@ node scripts/check-abv.mjs
 node scripts/check-backup.mjs
 node scripts/check-review-brewing.mjs
 node scripts/check-kombucha.mjs
+node scripts/check-own-recipes.mjs
 npm run check:browser
 npm run build
 ```
@@ -61,7 +62,7 @@ One JSON export contains both brewing editions, saved photo bytes, and Trash. It
 
 The IPA alcohol calculator estimates ABV from temperature-corrected gravity readings. These calculations do not apply to kombucha. Kombucha has its own pH, temperature, and taste records; the notebook does not infer bottle pressure or readiness. It does not determine fermentation completion or a safe priming-sugar dose. Recipe targets never substitute for measured readings. The timer does not promise notifications after the page is closed.
 
-Notebook schema 2 retains existing IPA records and imports schema-1 backups additively. New backups include both kinds of brewing, including flavor groups, photos, and Trash. Storage limits are shared across both editions. See [Kombucha workflow and compatibility](docs/KOMBUCHA.md).
+Notebook schema 3 retains existing IPA and kombucha records and imports schema-1/2 backups additively. New exports use version 3 to preserve custom recipe methods and batch volumes; older app versions cannot open those exports. Use the updated app when importing them. New backups include both kinds of brewing, including flavor groups, photos, and Trash. Storage limits are shared across both editions. See [Kombucha workflow and compatibility](docs/KOMBUCHA.md).
 
 ## Earlier Sites version
 
