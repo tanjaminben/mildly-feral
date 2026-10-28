@@ -47,6 +47,12 @@ npm run build
 
 The built Worker can be previewed locally with `npm start`. `wrangler.jsonc` serves the built assets with no notebook API, identity service, D1 database, or R2 bucket. A Git push or local build does not deploy the app. Deployment requires the domain owner's Cloudflare account; use a different Worker name and domain for your own deployment.
 
+### Portfolio path build
+
+`npm run build:portfolio` builds a separate edition for `https://ben-tan.com/mildlyferal` in `dist/portfolio/mildlyferal`. The portfolio's release assembler supplies the route and security headers. This output includes a Back to portfolio link and instructions for bringing a notebook from the old address. The normal root build remains available for the existing subdomain. Building or pushing source does not deploy the app; the portfolio owns publication of this path.
+
+Browser storage belongs to an origin. Export a JSON file at the old address, then import it at the new one and check both brewing editions and photos. Keep the old address and export available until the transfer is verified. The two copies do not sync, and import adds copies rather than replacing records. A path on ben-tan.com shares that origin's storage boundary with other code served by ben-tan.com; it does not have the subdomain's origin isolation.
+
 ## Limitations
 
 Notebooks and compressed photos are saved in IndexedDB for this browser profile and site address. People who share that profile can access the same notebook. Other browsers and devices have separate notebooks. Clearing site data, removing the profile, or closing a private browsing session can remove saved records. Export regularly. Limits are 40 batches, 500 entries, and 60 photos per browser notebook.

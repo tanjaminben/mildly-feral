@@ -1,4 +1,5 @@
 "use client";
+import { isPortfolioEdition, legacyExportUrl } from "@/lib/app-location";
 
 import { Download, Upload } from "lucide-react";
 import type { backupSnapshot } from "@/lib/backup";
@@ -19,7 +20,7 @@ export default function BackupPanel({snapshot,busy,exporting,loaded,hasDrafts,on
   </div>
   <div className="backup-help"><p className="small">Import adds separate copies alongside your records. Repeating an import creates duplicates; it does not sync or replace batches.</p>
    <p className="small">This notebook is saved only in this browser profile. Clearing site data or using a private window can remove it. Other people using this profile can open it.</p>
-   <details><summary>Move your notebook to another device</summary><ol><li>Save your drafts, prepare an export, then download the JSON file.</li><li>Copy that file to your other device using storage you trust.</li><li>Open Mildly Feral there and choose Import notebook file.</li></ol><p className="small">Photos are embedded in the file, so you do not need a separate photo folder. The file is not encrypted; keep it somewhere private.</p></details>
+   {isPortfolioEdition&&<details><summary>Bring a notebook from the old address</summary><p className="small">At the old address, choose Data &amp; backup and export your notebook. Import that JSON file here to bring your batches and photos.</p><a href={legacyExportUrl} target="_blank" rel="noopener noreferrer">Open the old app to export ↗</a><p className="small">Keep the export until you have checked the imported batches and photos. The two copies do not sync.</p></details>}<details><summary>Move your notebook to another device</summary><ol><li>Save your drafts, prepare an export, then download the JSON file.</li><li>Copy that file to your other device using storage you trust.</li><li>Open Mildly Feral there and choose Import notebook file.</li></ol><p className="small">Photos are embedded in the file, so you do not need a separate photo folder. The file is not encrypted; keep it somewhere private.</p></details>
    <p className="small muted">Drafts, unit preferences and timers stay on this device and are not included. Photos are the saved compressed copies; keep your originals separately.</p>
   </div>
  </section>;
