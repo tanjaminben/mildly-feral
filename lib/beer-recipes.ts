@@ -2,6 +2,13 @@ import { z } from 'zod';
 import { emptyRecipe, galToL, stages, brewingMethods, type BrewingMethod, type Recipe, type Batch } from './notebook.ts';
 import { recipeShelf } from './content.ts';
 
+// Legacy wort checks described grain steeping; never reuse them for extract or mash actions.
+export function beerChecklistKey(stage:Batch['stage'], index:number, method?:BrewingMethod):string {
+  return stage === 'steep' && method && method !== 'extract-grains'
+    ? `steep-${method}-${index}`
+    : `${stage}-${index}`;
+}
+
 export function recipeStartingPoint(recipeId:Batch['recipeId']):Recipe {
   if (recipeId === 'custom') return emptyRecipe();
   const preset = recipeShelf.find(recipe => recipe.id === recipeId)!;

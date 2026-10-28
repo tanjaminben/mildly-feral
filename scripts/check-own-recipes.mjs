@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {IDBFactory} from 'fake-indexeddb';
 import {batchSchema,entrySchema,emptyNotebook,emptyRecipe,notebookSchema,notebookVersion} from '../lib/notebook.ts';
-import {recipeStartingPoint,applyRecipePreset,changeRecipeMethod,repeatRecipe,recoverBatchDraft} from '../lib/beer-recipes.ts';
+import {recipeStartingPoint,applyRecipePreset,changeRecipeMethod,repeatRecipe,recoverBatchDraft,beerChecklistKey} from '../lib/beer-recipes.ts';
 import {guideForMethod,recipeMethod} from '../lib/content.ts';
 import {mergeNotebook} from '../lib/backup.ts';
 import {readNotebook,writeNotebook,addPhoto,readPhoto} from '../lib/browser-storage.ts';
@@ -31,6 +31,53 @@ for(const version of [1,2])await check(`version ${version} migrates without rewr
 await check('legacy recipe IDs infer their old method without adding saved fields',()=>{
   assert.equal(recipeMethod(legacy.recipe,'kit'),'extract-grains');assert.equal(recipeMethod(legacy.recipe,'kama'),'extract');
   assert.equal(recipeMethod(legacy.recipe,'sumpin'),'all-grain');assert.equal(recipeMethod(emptyRecipe(),'custom'),undefined);
+});
+for(const version of [1,2])for(const recipeId of ['kama','sumpin','jabba'])await check(`schema ${version} ${recipeId} keeps old wort history without completing a different method`,()=>{
+  const original={...legacy,recipeId,checks:{'prepare-0':true,'steep-1':true,'steep-3':true}},copy=structuredClone(original);
+  const parsed=notebookSchema.parse({schemaVersion:version,batches:[original],entries:[]}).batches[0];
+  assert.deepEqual(parsed,copy);assert.deepEqual(original,copy);
+  const method=recipeMethod(parsed.recipe,parsed.recipeId),wort=guideForMethod(method)[1];
+  for(const index of [1,3]){
+    assert.equal(parsed.checks[`steep-${index}`],true);
+    assert.notEqual(beerChecklistKey(wort.id,index,method),`steep-${index}`);
+    assert.equal(!!parsed.checks[beerChecklistKey(wort.id,index,method)],false);
+  }
+  assert.equal(parsed.checks[beerChecklistKey('prepare',0,method)],true);
+});
+await check('legacy kit wort checks and all non-wort stage keys retain their displayed state',()=>{
+  for(const version of [1,2]){
+    const original={...legacy,checks:{'steep-1':true,'steep-3':true}};
+    const parsed=notebookSchema.parse({schemaVersion:version,batches:[original],entries:[]}).batches[0];
+    const method=recipeMethod(parsed.recipe,parsed.recipeId);
+    for(const index of [1,3])assert.equal(parsed.checks[beerChecklistKey('steep',index,method)],true);
+    assert.deepEqual(parsed,original);
+  }
+  for(const method of ['extract','extract-grains','all-grain'])for(const step of guideForMethod(method)){
+    if(step.id!=='steep')for(let index=0;index<step.checks.length;index++)assert.equal(beerChecklistKey(step.id,index,method),`${step.id}-${index}`);
+  }
+});
+await check('extract and all-grain completion keys cannot satisfy one another or old grain-steeping history',()=>{
+  const extract=beerChecklistKey('steep',1,'extract'),mash=beerChecklistKey('steep',1,'all-grain');
+  assert.notEqual(extract,mash);assert.notEqual(extract,'steep-1');assert.notEqual(mash,'steep-1');
+  const checks={'steep-1':true,[extract]:true};assert.equal(!!checks[mash],false);
+  assert.equal(beerChecklistKey('steep',1,'extract-grains'),'steep-1');
+});
+await check('new wort completion survives save and additive reimport while retaining all legacy history',async()=>{
+  globalThis.indexedDB=new IDBFactory();
+  const original={...legacy,recipeId:'kama',checks:{'prepare-0':true,'steep-1':true,'steep-3':true}};
+  let savedBook=notebookSchema.parse({schemaVersion:2,batches:[original],entries:[]});
+  const key=beerChecklistKey('steep',1,recipeMethod(original.recipe,original.recipeId));
+  await writeNotebook(savedBook,0);let saved=await readNotebook();assert.deepEqual(saved.book.batches[0],original);
+  assert.equal(!!saved.book.batches[0].checks[key],false);
+  savedBook={...saved.book,batches:[{...saved.book.batches[0],checks:{...saved.book.batches[0].checks,[key]:true}}]};
+  await writeNotebook(savedBook,saved.revision);saved=await readNotebook();assert.deepEqual(saved.book,savedBook);
+  const exported=JSON.parse(JSON.stringify({version:3,book:saved.book,photos:{}}));
+  globalThis.indexedDB=new IDBFactory();
+  const merged=mergeNotebook(emptyNotebook(),notebookSchema.parse(exported.book),new Map());
+  await writeNotebook(merged,0);const imported=(await readNotebook()).book.batches[0];
+  assert.notEqual(imported.id,original.id);assert.deepEqual(imported.checks,{'prepare-0':true,'steep-1':true,'steep-3':true,[key]:true});
+  assert.deepEqual(imported.recipe,original.recipe);assert.equal(!!imported.checks[beerChecklistKey('steep',1,'all-grain')],false);
+  assert.deepEqual(original.checks,{'prepare-0':true,'steep-1':true,'steep-3':true});
 });
 await check('custom recipes require a known brewing method',()=>{
   assert.equal(batchSchema.safeParse({...custom(),recipe:emptyRecipe()}).success,false);
@@ -78,6 +125,7 @@ await check('version 3 round trips all custom fields, Unicode and written markup
 globalThis.indexedDB=new IDBFactory();
 const jpeg=new Blob([new Uint8Array([255,216,255,224,0,2,255,217])],{type:'image/jpeg'});
 const photo=await addPhoto(jpeg),batch=custom();
+batch.checks={'steep-1':true,[beerChecklistKey('steep',1,'all-grain')]:true};
 const entry=entrySchema.parse({id:id(),batchId:batch.id,type:'note',at,timezone:'America/Los_Angeles',title:'Saved photo in Trash',note:'Keep this note',
   tempC:null,tempKind:'beer',gravity:null,volumeL:null,photos:[{id:photo.id,caption:'Recipe photo'}],bottling:null,status:'completed',phase:'steep',deletedAt:at});
 const book=notebookSchema.parse({...emptyNotebook(),batches:[batch],entries:[entry]});
@@ -91,7 +139,7 @@ await check('additive import preserves custom fields, remaps IDs and restores em
   const restored=await addPhoto(decodePhoto(exported.photos[photo.id]));
   const merged=mergeNotebook({...emptyNotebook(),batches:[legacy]},notebookSchema.parse(exported.book),new Map([[photo.id,restored.id]]));
   await writeNotebook(merged,0);const saved=(await readNotebook()).book;
-  assert.deepEqual(saved.batches[0],legacy);assert.deepEqual(saved.batches[1].recipe,batch.recipe);assert.notEqual(saved.batches[1].id,batch.id);
+  assert.deepEqual(saved.batches[0],legacy);assert.deepEqual(saved.batches[1].recipe,batch.recipe);assert.deepEqual(saved.batches[1].checks,batch.checks);assert.notEqual(saved.batches[1].id,batch.id);
   assert.equal(saved.entries[0].batchId,saved.batches[1].id);assert.equal(saved.entries[0].deletedAt,at);
   assert.deepEqual(new Uint8Array(await (await readPhoto(restored.id)).arrayBuffer()),new Uint8Array(await jpeg.arrayBuffer()));
 });
