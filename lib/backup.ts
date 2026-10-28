@@ -1,4 +1,5 @@
 import type { Notebook } from "./notebook.ts";
+import { notebookVersion } from "./notebook.ts";
 import { remapHydrometerSources } from "./gravity.ts";
 
 export const importLimits = { batches: 40, entries: 500, photos: 60 } as const;
@@ -74,7 +75,7 @@ export function mergeNotebook(existing:Notebook,incoming:Notebook,photoIds:Map<s
   const entryIds=new Map([...incoming.entries,...incoming.kombuchaEntries].map(e=>[e.id,makeId()]));
   const flavorIds=new Map(incoming.kombuchaBatches.flatMap(b=>b.flavors).map(f=>[f.id,makeId()]));
   const photos=(list:{id:string,caption:string}[])=>list.map(p=>{const id=photoIds.get(p.id);if(!id)throw new Error("An imported photo is missing.");return {...p,id};});
-  return {schemaVersion:2,
+  return {schemaVersion:notebookVersion,
     batches:[...existing.batches,...incoming.batches.map(b=>({...b,id:batchIds.get(b.id)!,hydrometer:remapHydrometerSources(b.hydrometer,entryIds)}))],
     entries:[...existing.entries,...incoming.entries.map(e=>({...e,id:entryIds.get(e.id)!,batchId:batchIds.get(e.batchId)!,photos:photos(e.photos)}))],
     kombuchaBatches:[...existing.kombuchaBatches,...incoming.kombuchaBatches.map(b=>({...b,id:batchIds.get(b.id)!,flavors:b.flavors.map(f=>({...f,id:flavorIds.get(f.id)!}))}))],

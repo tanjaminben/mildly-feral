@@ -1,6 +1,9 @@
 import { z } from "zod";
 export const stages = ["prepare", "steep", "boil", "chill", "ferment", "bottle", "taste"] as const;
 export const entryTypes = ["note", "reading", "dry-hop", "bottling", "tasting", "label"] as const;
+export const notebookVersion = 3 as const;
+export const brewingMethods = ["extract", "extract-grains", "all-grain"] as const;
+export type BrewingMethod = typeof brewingMethods[number];
 const id = z.string().uuid();
 const text = (length: number) => z.string().max(length);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => { const d = new Date(v + "T12:00:00Z"); return Number.isFinite(+d) && d.toISOString().slice(0,10) === v; }, "Choose a valid calendar date.");
@@ -9,8 +12,10 @@ const erased = instant.nullable().optional();
 export const recipeStepSchema = z.object({
   stage: z.enum(stages), instruction: text(1200), quantity: text(300),
   tempC: z.number().min(-10).max(110).nullable(), minutes: z.number().min(.1).max(180).nullable(), confirmed: z.boolean(),
-}).refine(v => !v.confirmed || !!v.instruction.trim(), "Add the packet instruction before confirming this step.");
+}).refine(v => !v.confirmed || !!v.instruction.trim(), "Add your recipe instruction before confirming this step.");
 export const recipeSchema = z.object({
+  method: z.enum(brewingMethods).optional(),
+  batchVolumeL: z.number().min(.01).max(1000).nullable().optional(),
   source: text(500), yeastName: text(100), minC: z.number().min(-10).max(60).nullable(), maxC: z.number().min(-10).max(60).nullable(),
   expectedOG: z.number().min(1).max(1.25).nullable(), expectedFG: z.number().min(.8).max(1.25).nullable(),
   steps: z.array(recipeStepSchema).max(7),
@@ -56,12 +61,12 @@ export function estimateAbv(og:number|null,fg:number|null):number|null {
   return (parsed.data.og-parsed.data.fg)*131.25;
 }
 export const batchSchema = z.object({
-  id, name: z.string().trim().min(1).max(100), recipeId: z.enum(["kit", "kama", "sumpin", "jabba"]),
+  id, name: z.string().trim().min(1).max(100), recipeId: z.enum(["custom", "kit", "kama", "sumpin", "jabba"]),
   startedOn: day, stage: z.enum(stages), checks: z.record(z.string().max(80), z.boolean()).refine(v => Object.keys(v).length <= 100),
   packetNotes: text(6000), yeastConfirmed: z.boolean(), createdAt: instant, deletedAt: erased,
   recipe: recipeSchema.default(emptyRecipe),
   hydrometer: hydrometerSchema.default(emptyHydrometer),
-});
+}).refine(v => v.recipeId !== "custom" || !!v.recipe.method, "Choose a brewing method for your recipe.");
 export const entrySchema = z.object({
   id, batchId: id, type: z.enum(entryTypes), at: instant, timezone: text(100), title: text(150), note: text(12000),
   tempC: z.number().min(-10).max(110).nullable(), tempKind: z.enum(["beer", "room"]),
@@ -110,7 +115,7 @@ export type KombuchaEntry=z.infer<typeof kombuchaEntrySchema>;
 export type FlavorGroup=z.infer<typeof flavorGroupSchema>;
 export type KombuchaRecipe=z.infer<typeof kombuchaRecipeSchema>;
 // v1 notebooks are read additively. No IPA IDs, measurements, dates or photo references change.
-export const notebookSchema = z.object({schemaVersion:z.union([z.literal(1),z.literal(2)]).transform(()=>2 as const), batches:z.array(batchSchema).max(40), entries:z.array(entrySchema).max(500), kombuchaBatches:z.array(kombuchaBatchSchema).max(40).default([]), kombuchaEntries:z.array(kombuchaEntrySchema).max(500).default([])}).superRefine((v,ctx) => {
+export const notebookSchema = z.object({schemaVersion:z.union([z.literal(1),z.literal(2),z.literal(3)]).transform(()=>notebookVersion), batches:z.array(batchSchema).max(40), entries:z.array(entrySchema).max(500), kombuchaBatches:z.array(kombuchaBatchSchema).max(40).default([]), kombuchaEntries:z.array(kombuchaEntrySchema).max(500).default([])}).superRefine((v,ctx) => {
   const allBatches=[...v.batches,...v.kombuchaBatches], allEntries=[...v.entries,...v.kombuchaEntries];
   const batches = new Set(v.batches.map(b=>b.id));
   if(new Set(allBatches.map(b=>b.id)).size !== allBatches.length || new Set(allEntries.map(e=>e.id)).size !== allEntries.length) ctx.addIssue({code:"custom",message:"Duplicate record IDs."});
@@ -130,7 +135,7 @@ export type Entry = z.infer<typeof entrySchema>;
 export type Notebook = z.infer<typeof notebookSchema>;
 export type Recipe = z.infer<typeof recipeSchema>;
 export type RecipeStep = z.infer<typeof recipeStepSchema>;
-export const emptyNotebook = ():Notebook => ({schemaVersion:2,batches:[],entries:[],kombuchaBatches:[],kombuchaEntries:[]});
+export const emptyNotebook = ():Notebook => ({schemaVersion:notebookVersion,batches:[],entries:[],kombuchaBatches:[],kombuchaEntries:[]});
 export const referencedPhotoIds = (book:Pick<Notebook,"entries"> & Partial<Pick<Notebook,"kombuchaEntries">>) => [...new Set([...book.entries,...(book.kombuchaEntries||[])].flatMap(e=>e.photos.map(p=>p.id)))];
 export const cToF = (v:number) => v*9/5+32;
 export const fToC = (v:number) => (v-32)*5/9;

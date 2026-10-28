@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   title: "Mildly Feral — IPA & Kombucha",
   description: "A personal brewing fieldbook for IPA and kombucha. Recipes, readings, photos and the next good batch.",
   icons: {
-    icon: "/favicon.svg?v=hop",
-    shortcut: "/favicon.svg?v=hop",
+    icon: "/favicon.svg?v=cream-hop-1",
+    shortcut: "/favicon.svg?v=cream-hop-1",
   },
 };
 
